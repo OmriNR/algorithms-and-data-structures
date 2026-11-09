@@ -1,8 +1,4 @@
-class TreeNode:
-    def __init__(self, val):
-        self.val = val
-        self.left = None
-        self.right = None
+from DataSturctures.binary_tree import TreeNode
 
 def print_part_sorted(node: TreeNode, x, y):
     if node is None:
@@ -18,6 +14,3 @@ def print_part_sorted(node: TreeNode, x, y):
         print_part_sorted(node.left, x, y)
         print(f"next value: {node.val}")
         print_part_sorted(node.right, x, y)
-
-
-    
