@@ -87,10 +87,9 @@ def bellman_ford(graph: Graph, s: int = 0):  # O(|V| * |E|)
     n = len(graph)
 
     # every edge in its direction (an undirected edge appears in both directions)
-    edges = []
-    for u in range(n):
-        for v in graph.neighbors(u):
-            edges.append((u, v, graph.weight(u, v)))
+    edges = list(graph.edges)
+    if not graph.directed:
+        edges += [(v, u, w) for u, v, w in graph.edges]
 
     dist = [INF] * n
     parent = [None] * n

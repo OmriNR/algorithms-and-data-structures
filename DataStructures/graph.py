@@ -1,4 +1,13 @@
 
+def _find_edge_index(edges: list, u: int, v: int, directed: bool) -> int:  # O(m)
+    """Position of the edge (u, v) in an edge list, or -1 if it isn't there.
+    In an undirected graph (u, v) and (v, u) are the same edge."""
+    for i, (a, b, _) in enumerate(edges):
+        if (a == u and b == v) or (not directed and a == v and b == u):
+            return i
+    return -1
+
+
 # ======================================================================
 # 1. Adjacency matrix
 # ======================================================================
@@ -8,10 +17,20 @@ class AdjacencyMatrixGraph:
         self.n = n
         self.directed = directed
         self.matrix = [[None] * n for _ in range(n)]
+        self.edges = []  # E: every edge once, as (u, v, weight)
 
     def _check_vertex(self, v: int) -> None:
         if v < 0 or v >= self.n:
             raise IndexError(f"vertex {v} is not in the graph (0..{self.n - 1})")
+
+    def _record_edge(self, u: int, v: int, weight, existed: bool) -> None:
+        """Keep self.edges in sync: append a new edge (O(1)) or update an existing one's weight (O(m))."""
+        if existed:
+            i = _find_edge_index(self.edges, u, v, self.directed)
+            a, b, _ = self.edges[i]
+            self.edges[i] = (a, b, weight)
+        else:
+            self.edges.append((u, v, weight))
 
     def has_edge(self, u: int, v: int) -> bool:  # O(1)
         """Is there an edge from u to v? (In an undirected graph the direction doesn't matter.)"""
@@ -23,24 +42,26 @@ class AdjacencyMatrixGraph:
         """Are u and v connected by an edge in any direction?"""
         return self.has_edge(u, v) or self.has_edge(v, u)
 
-    def add_edge(self, u: int, v: int, weight=1) -> None:  # O(1)
+    def add_edge(self, u: int, v: int, weight=1) -> None:  # O(1) new edge, O(m) weight update
         """Add the edge (u, v). If it already exists, its weight is updated."""
         self._check_vertex(u)
         self._check_vertex(v)
         if u == v:
             raise ValueError("loops are not allowed in a simple graph")
 
+        self._record_edge(u, v, weight, existed=self.matrix[u][v] is not None)
         self.matrix[u][v] = weight
         if not self.directed:
             self.matrix[v][u] = weight  # keep A = A^T
 
-    def delete_edge(self, u: int, v: int) -> None:  # O(1)
+    def delete_edge(self, u: int, v: int) -> None:  # O(m) - removing from the edge list
         if not self.has_edge(u, v):
             raise ValueError(f"edge ({u}, {v}) is not in the graph")
 
         self.matrix[u][v] = None
         if not self.directed:
             self.matrix[v][u] = None
+        self.edges.pop(_find_edge_index(self.edges, u, v, self.directed))
 
     def weight(self, u: int, v: int):  # O(1)
         if not self.has_edge(u, v):
@@ -109,6 +130,7 @@ class AdjacencyListGraph:
         self.n = n
         self.directed = directed
         self.heads = [None] * n  # heads[u] = first node of u's neighbour list
+        self.edges = []  # E: every edge once, as (u, v, weight)
 
     def _check_vertex(self, v: int) -> None:
         if v < 0 or v >= self.n:
@@ -143,6 +165,15 @@ class AdjacencyListGraph:
             node = node.next
         return False
 
+    def _record_edge(self, u: int, v: int, weight, existed: bool) -> None:
+        """Keep self.edges in sync: append a new edge (O(1)) or update an existing one's weight (O(m))."""
+        if existed:
+            i = _find_edge_index(self.edges, u, v, self.directed)
+            a, b, _ = self.edges[i]
+            self.edges[i] = (a, b, weight)
+        else:
+            self.edges.append((u, v, weight))
+
     def has_edge(self, u: int, v: int) -> bool:  # O(deg(u))
         """Is there an edge from u to v? (In an undirected graph the direction doesn't matter.)"""
         self._check_vertex(u)
@@ -153,24 +184,26 @@ class AdjacencyListGraph:
         """Are u and v connected by an edge in any direction?"""
         return self.has_edge(u, v) or self.has_edge(v, u)
 
-    def add_edge(self, u: int, v: int, weight=1) -> None:  # O(deg(u) + deg(v))
+    def add_edge(self, u: int, v: int, weight=1) -> None:  # O(deg(u) + deg(v)), O(m) for a weight update
         """Add the edge (u, v). If it already exists, its weight is updated."""
         self._check_vertex(u)
         self._check_vertex(v)
         if u == v:
             raise ValueError("loops are not allowed in a simple graph")
 
+        self._record_edge(u, v, weight, existed=self._find(u, v) is not None)
         self._insert(u, v, weight)
         if not self.directed:
             self._insert(v, u, weight)  # undirected: stored in both lists
 
-    def delete_edge(self, u: int, v: int) -> None:  # O(deg(u) + deg(v))
+    def delete_edge(self, u: int, v: int) -> None:  # O(m) - removing from the edge list
         self._check_vertex(u)
         self._check_vertex(v)
         if not self._remove(u, v):
             raise ValueError(f"edge ({u}, {v}) is not in the graph")
         if not self.directed:
             self._remove(v, u)
+        self.edges.pop(_find_edge_index(self.edges, u, v, self.directed))
 
     def weight(self, u: int, v: int):  # O(deg(u))
         self._check_vertex(u)

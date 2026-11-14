@@ -1,6 +1,6 @@
 from DataSturctures.graph import Graph
 from DataSturctures.heap import MinHeap
-from Algorithems.SortingAlgorithms.compersion_sorts import merge_sort
+from Algorithems.SortingAlgorithms.non_compersion_sorts import lsd_radix_sort
 
 def prim(graph: Graph, s: int = 0): #O(|E| * log(|V|) )
     n = len(graph)
@@ -28,12 +28,8 @@ def prim(graph: Graph, s: int = 0): #O(|E| * log(|V|) )
     return mst, total
 
 def get_edges(graph: Graph):
-    edges = []
-    for u in range(len(graph)):
-        for v in graph.neighbors(u):
-            if u < v:
-                edges.append((graph.weight(u,v), u, v))
-        return edges
+    # (weight, u, v) so sorting the tuples sorts by weight
+    return [(w, u, v) for u, v, w in graph.edges]
 
 def find(parent, x):
     while parent[x] != x:
@@ -57,7 +53,7 @@ def union(parent, rank, a, b):
 
 def kruskal(graph: Graph):
     n = len(graph)
-    edges = merge_sort(get_edges(graph))
+    edges = lsd_radix_sort(get_edges(graph))
 
     parent = list(range(n))
     rank = [0] * n
