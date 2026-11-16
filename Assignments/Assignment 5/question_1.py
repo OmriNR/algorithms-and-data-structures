@@ -1,12 +1,12 @@
-from DataSturctures.graph import Graph
-from DataSturctures.queue import Queue
+from DataStructures.graph import Graph
+from DataStructures.queue import Queue
 
 def yellowest_mst(graph: Graph):
     n = len(graph)
     sorted_edges = bucket_sort_edges_two_buckets(graph.edges)
 
     parent = list(range(n))
-    rank [0] * n
+    rank = [0] * n
 
     mst = []
     total = 0
@@ -41,6 +41,12 @@ def bucket_sort_edges_two_buckets(edges):
         sorted_edges.extend(black_buckets[w])
 
     return sorted_edges
+
+def find(parent, x):
+    while parent[x] != x:
+        parent[x] = parent[parent[x]]
+        x = parent[x]
+    return x
 
 def union(parent, rank, a, b):
     root_a = find(parent, a)

@@ -12,7 +12,7 @@ def find_even_minimal_ways(graph: AdjacencyListGraph, s):
 
     for _ in range(bipartite_n - 1):
         changed = False
-        for u, v, w in bipartite_graph.edges:
+        for u, v, w in biparitite_graph.edges:
             if dist[u] != INF and dist[u] + w < dist[v]:
                 dist[v] = dist[u] + w
                 changed = True

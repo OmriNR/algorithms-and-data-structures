@@ -1,4 +1,4 @@
-from DataSturctures.queue import Queue, sort_queue
+from DataStructures.queue import Queue, sort_queue
 
 def bucket_sort(arr):
     if len(arr) <= 1:
