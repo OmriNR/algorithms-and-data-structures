@@ -1,3 +1,4 @@
+from DataStructures.hash_table import HashTable
 
 def _find_edge_index(edges: list, u: int, v: int, directed: bool) -> int:  # O(m)
     """Position of the edge (u, v) in an edge list, or -1 if it isn't there.
@@ -262,6 +263,102 @@ class AdjacencyListGraph:
         kind = "directed" if self.directed else "undirected"
         return f"AdjacencyListGraph({kind}, n={self.n})\n" + "\n".join(rows)
 
+# ======================================================================
+# 3. Hash Table
+# ======================================================================
 
-# Default graph: the adjacency list is better for sparse graphs (most graphs in practice).
-Graph = AdjacencyListGraph
+class HashTableGraph:
+    def __init__(self, n: int, directed: bool = False):  # O(n)
+        self.n = n
+        self.directed = directed
+        self.table = HashTable(n)  # table[u] = hash table of u's neighbours: v -> weight
+        for i in range(n):
+            self.table.insert(i, HashTable())  # small start, grows with deg(i) - O(n + m) space overall
+        self.edges = []  # E: every edge once, as (u, v, weight)
+
+    def _check_vertex(self, v: int) -> None:
+        if v < 0 or v >= self.n:
+            raise IndexError(f"vertex {v} is not in the graph (0..{self.n - 1})")
+
+    def _adj(self, u: int):  # O(1)
+        return self.table.get(u)
+
+    def _record_edge(self, u: int, v: int, weight, existed: bool) -> None:
+        if existed:
+            i = _find_edge_index(self.edges, u, v, self.directed)
+            a, b, _ = self.edges[i]
+            self.edges[i] = (a, b, weight)
+        else:
+            self.edges.append((u, v, weight))
+
+    def has_edge(self, u: int, v: int) -> bool:  # O(1)
+        self._check_vertex(u)
+        self._check_vertex(v)
+        return v in self._adj(u)
+
+    def are_neighbors(self, u: int, v: int) -> bool:  # O(1)
+        return self.has_edge(u, v) or self.has_edge(v, u)
+
+    def add_edge(self, u: int, v: int, weight=1) -> None:  # O(1) new edge, O(m) weight update
+        self._check_vertex(u)
+        self._check_vertex(v)
+        if u == v:
+            raise ValueError("loops are not allowed in a simple graph")
+
+        self._record_edge(u, v, weight, existed=v in self._adj(u))
+        self._adj(u).insert(v, weight)
+        if not self.directed:
+            self._adj(v).insert(u, weight)  # undirected: stored in both tables
+
+    def delete_edge(self, u: int, v: int) -> None:  # O(1) in the tables, O(m) for the edge list
+        if not self.has_edge(u, v):
+            raise ValueError(f"edge ({u}, {v}) is not in the graph")
+
+        self._adj(u).delete(v)
+        if not self.directed:
+            self._adj(v).delete(u)
+        self.edges.pop(_find_edge_index(self.edges, u, v, self.directed))
+
+    def weight(self, u: int, v: int):  # O(1)
+        if not self.has_edge(u, v):
+            raise ValueError(f"edge ({u}, {v}) is not in the graph")
+        return self._adj(u).get(v)
+
+    def out_degree(self, v: int) -> int:  # O(1) - the size of v's table
+        self._check_vertex(v)
+        return len(self._adj(v))
+
+    def in_degree(self, v: int) -> int:  # O(n) - one O(1) lookup in every other table
+        self._check_vertex(v)
+        if not self.directed:
+            return self.out_degree(v)
+        count = 0
+        for u in range(self.n):
+            if v in self._adj(u):
+                count += 1
+        return count
+
+    def degree(self, v: int) -> int:
+        if self.directed:
+            return self.in_degree(v) + self.out_degree(v)  # O(n)
+        return self.out_degree(v)  # O(1)
+
+    def neighbors(self, v: int) -> list[int]:  # O(size of v's table) = O(deg(v)) while the load factor is kept bounded
+        self._check_vertex(v)
+        return [u for u, _ in self._adj(v).items()]
+
+    def __len__(self) -> int:
+        return self.n
+
+    def __repr__(self) -> str:
+        rows = []
+        for u in range(self.n):
+            parts = []
+            for v, w in sorted(self._adj(u).items()):
+                parts.append(str(v) if w == 1 else f"{v}(w={w})")
+            rows.append(f"{u}: " + ", ".join(parts))
+        kind = "directed" if self.directed else "undirected"
+        return f"HashTableGraph({kind}, n={self.n})\n" + "\n".join(rows)
+
+
+Graph = HashTableGraph
