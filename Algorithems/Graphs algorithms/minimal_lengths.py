@@ -1,5 +1,5 @@
-from DataSturctures.graph import Graph
-from DataSturctures.heap import MinHeap
+from DataStructures.graph import Graph
+from DataStructures.heap import MinHeap
 
 INF = float("inf")
 
@@ -121,3 +121,36 @@ def get_path(parent, s: int, t: int):
         curr = parent[curr]
     path.reverse()
     return path if path[0] == s else []
+
+def floyd_warshalc(graph: Graph):
+    n = len(graph)
+
+    dist = [[INF] * n for _ in range(n)]
+    for i in range(n):
+        dist[i][i] = 0
+
+    nxt = [[None] * n for _ in range(n)]
+
+    edges = list(graph.edges)
+    if not graph.directed:
+        edges += [(v, u, w) for u, v, w in graph.edges]
+
+    for u, v, w in edges:
+        if w < dist[u][v]:
+            dist[u][v] = w
+            nxt[u][v] = v
+
+    for k in range(n):
+        for i in range(n):
+            for j in range(n):
+                if dist[i][k] != INF and dist[k][j] != INF:
+                    if dist[i][k] + dist[k][j] < dist[i][j]:
+                        dist[i][j] = dist[i][k] + dist[k][j]
+                        nxt[i][j] = nxt[i][k]  # עדכון הצעד הבא דרך k
+
+    # 4. זיהוי מעגל שלילי (אם מרחק של קודקוד מעצמו קטן מאפס)
+    for i in range(n):
+        if dist[i][i] < 0:
+            raise ValueError("graph contains a negative cycle")
+
+    return dist, nxt

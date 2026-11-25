@@ -1,163 +1,97 @@
-class FibonacciNode:
+class FibNode:
     def __init__(self, key, value=None):
         self.key = key
-        self.value = value      
-        self.degree = 0         
-        self.marked = False     
-        self.parent = None      
-        self.child = None       
-        self.left = self        
-        self.right = self       
+        self.value = value
+        self.parent = None
+        self.children = []
+        self.marked = False  # "שחור": איבד ילד מאז שהפך לילד של מישהו
 
 
 class FibonacciHeap:
     def __init__(self):
-        self.min_node = None 
-        self.total_nodes = 0    
+        self.roots = []       # השכבה העליונה (כל העצים)
+        self.min_node = None  # מצביע למינימום
 
-    def is_empty(self) -> bool:
+    def is_empty(self):
         return self.min_node is None
 
-    def insert(self, key, value=None) -> FibonacciNode:
-        node = FibonacciNode(key, value)
-        if self.min_node is None:
+    def get_min(self):
+        return self.min_node
+
+    def insert(self, key, value=None):
+        node = FibNode(key, value)
+        self.roots.append(node)
+        if self.min_node is None or key < self.min_node.key:
             self.min_node = node
-        else:
-            self._add_to_root_list(node)
-            if key < self.min_node.key:
-                self.min_node = node
-        
-        self.total_nodes += 1
         return node
 
-    def get_min(self):
-        if self.min_node is None:
-            return None
-        return (self.min_node.key, self.min_node.value)
-
-    def union(self, other_heap):
-        if other_heap.min_node is None:
-            return
-        if self.min_node is None:
-            self.min_node = other_heap.min_node
-            self.total_nodes = other_heap.total_nodes
-            return
-
-        min1 = self.min_node
-        min2 = other_heap.min_node
-        
-        right1 = min1.right
-        left2 = min2.left
-        
-        min1.right = min2
-        min2.left = min1
-        right1.left = left2
-        left2.right = right1
-
-        if other_heap.min_node.key < self.min_node.key:
-            self.min_node = other_heap.min_node
-            
-        self.total_nodes += other_heap.total_nodes
+    def union(self, other):
+        self.roots.extend(other.roots)
+        if other.min_node is not None and (self.min_node is None or other.min_node.key < self.min_node.key):
+            self.min_node = other.min_node
+        other.roots, other.min_node = [], None
 
     def extract_min(self):
         z = self.min_node
-        if z is not None:
-            if z.child is not None:
-                children = [z.child]
-                curr = z.child.right
-                while curr != z.child:
-                    children.append(curr)
-                    curr = curr.right
-                
-                for child in children:
-                    self._remove_from_child_list(child)
-                    self._add_to_root_list(child)
-                    child.parent = None
+        if z is None:
+            return None
+        self.roots.remove(z)
+        for child in z.children:  # הילדים עולים לשכבה העליונה
+            child.parent = None
+            child.marked = False
+        self.roots.extend(z.children)
+        z.children = []
+        self._consolidate()
+        return z
 
-            self._remove_from_root_list(z)
-            
-            if z == z.right:
-                self.min_node = None
-            else:
-                self.min_node = z.right
-                self._consolidate()
-                
-            self.total_nodes -= 1
-            return (z.key, z.value)
-        return None
-
-
-    def _add_to_root_list(self, node):
-        node.left = self.min_node
-        node.right = self.min_node.right
-        self.min_node.right.left = node
-        self.min_node.right = node
-
-    def _remove_from_root_list(self, node):
-        if node == node.right:
-            return
-        node.left.right = node.right
-        node.right.left = node.left
-
-    def _add_child(self, parent, child):
-        child.parent = parent
-        parent.degree += 1
-        if parent.child is None:
-            parent.child = child
-            child.left = child
-            child.right = child
-        else:
-            child.left = parent.child
-            child.right = parent.child.right
-            parent.child.right.left = child
-            parent.child.right = child
-
-    def _remove_from_child_list(self, node):
+    def decrease_key(self, node, new_key):
+        if new_key > node.key:
+            raise ValueError("המפתח החדש חייב להיות קטן או שווה לישן")
+        node.key = new_key
         parent = node.parent
-        parent.degree -= 1
-        if parent.child == node:
-            if node.right == node:
-                parent.child = None
-            else:
-                parent.child = node.right
-        node.left.right = node.right
-        node.right.left = node.left
+        if parent is not None and node.key < parent.key:
+            self._cut(node, parent)
+            self._cascading_cut(parent)
+        if node.key < self.min_node.key:
+            self.min_node = node
+
+    def delete(self, node):
+        parent = node.parent
+        if parent is not None:
+            self._cut(node, parent)
+            self._cascading_cut(parent)
+        self.min_node = node  # מעבירים אותו למינימום ומוציאים
+        self.extract_min()
 
     def _consolidate(self):
-        max_degree = int(self.total_nodes.bit_length() * 2) + 1
-        table = [None] * max_degree
-
-        # איסוף כל השורשים הנוכחיים
-        root_list = [self.min_node]
-        curr = self.min_node.right
-        while curr != self.min_node:
-            root_list.append(curr)
-            curr = curr.right
-
-        for w in root_list:
-            d = w.degree
-            while table[d] is not None:
-                other = table[d]
-                if w.key > other.key:
+        # מחברים שורשים עם אותה דרגה, עד שכל דרגה מופיעה לכל היותר פעם אחת
+        by_degree = {}
+        for w in self.roots:
+            while len(w.children) in by_degree:
+                other = by_degree.pop(len(w.children))
+                if other.key < w.key:
                     w, other = other, w
                 self._link(other, w)
-                table[d] = None
-                d += 1
-            table[d] = w
+            by_degree[len(w.children)] = w
+        self.roots = list(by_degree.values())
+        self.min_node = min(self.roots, key=lambda n: n.key, default=None)
 
-        self.min_node = None
-        for w in table:
-            if w is not None:
-                if self.min_node is None:
-                    self.min_node = w
-                    w.left = w
-                    w.right = w
-                else:
-                    self._add_to_root_list(w)
-                    if w.key < self.min_node.key:
-                        self.min_node = w
+    def _link(self, child, parent):
+        child.parent = parent
+        parent.children.append(child)
 
-    def _link(self, ptr2, ptr1):
-        self._remove_from_root_list(ptr2)
-        self._add_child(ptr1, ptr2)
-        ptr2.marked = False
+    def _cut(self, node, parent):
+        parent.children.remove(node)
+        node.parent = None
+        node.marked = False
+        self.roots.append(node)
+
+    def _cascading_cut(self, node):
+        parent = node.parent
+        if parent is None:
+            return
+        if not node.marked:
+            node.marked = True
+        else:
+            self._cut(node, parent)
+            self._cascading_cut(parent)
